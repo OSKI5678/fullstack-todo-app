@@ -1,83 +1,106 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');       // NOWOŚĆ: Moduł do obsługi plików na dysku
-const path = require('path');   // NOWOŚĆ: Pomaga tworzyć bezpieczne ścieżki do plików
+const fs = require('fs');
+const path = require('path');
 const app = express();
 const PORT = 3005;
 
 app.use(cors());
 app.use(express.json());
 
-// Ścieżka do naszego pliku z danymi (stworzy się w tym samym folderze)
-const FILE_PATH = path.join(__dirname, 'tasks.json');
+const FILE_PATH = path.join(__dirname, 'db.json');
 
-// 🛠️ Funkcja pomocnicza: Czytanie zadań z pliku
-const readTasksFromFile = () => {
-    try {
-        // Jeśli plik jeszcze nie istnieje, stwórz go z początkowymi zadaniami
-        if (!fs.existsSync(FILE_PATH)) {
-            const defaultTasks = [
-                { id: 1, title: "Kupić mleko" },
-                { id: 2, title: "Nauczyć się Node.js" }
-            ];
-            fs.writeFileSync(FILE_PATH, JSON.stringify(defaultTasks, null, 2));
-            return defaultTasks;
-        }
-        // Jeśli istnieje, przeczytaj go i zamień tekst na obiekt JavaScript
-        const fileData = fs.readFileSync(FILE_PATH, 'utf8');
-        return JSON.parse(fileData);
-    } catch (err) {
-        console.error("Błąd odczytu pliku:", err);
-        return [];
+// Pomocnicze czytanie z bazy JSON
+const readData = () => {
+    if (!fs.existsSync(FILE_PATH)) {
+        const initialData = { users: [], tasks: [] };
+        fs.writeFileSync(FILE_PATH, JSON.stringify(initialData, null, 2));
+        return initialData;
     }
+    return JSON.parse(fs.readFileSync(FILE_PATH, 'utf8'));
 };
 
-// 🛠️ Funkcja pomocnicza: Zapisywanie zadań do pliku
-const writeTasksToFile = (tasks) => {
-    try {
-        // Zamienia obiekt/tablicę na ładnie sformatowany tekst JSON i zapisuje na dysku
-        fs.writeFileSync(FILE_PATH, JSON.stringify(tasks, null, 2));
-    } catch (err) {
-        console.error("Błąd zapisu do pliku:", err);
-    }
+// Pomocniczy zapis do bazy JSON
+const saveData = (data) => {
+    fs.writeFileSync(FILE_PATH, JSON.stringify(data, null, 2));
 };
 
-// 1. Pobieranie (GET)
-app.get('/api/tasks', (req, res) => {
-    const tasks = readTasksFromFile(); // Czytamy prosto z pliku!
-    res.json(tasks); 
+// --- AUTH: Rejestracja ---
+app.post('/api/auth/register', (req, res) => {
+    const { username, password } = req.body;
+    const data = readData();
+
+    if (data.users.find(u => u.username === username)) {
+        return res.status(400).json({ message: "Użytkownik o takiej nazwie już istnieje!" });
+    }
+
+    const nextId = data.users.length > 0 ? Math.max(...data.users.map(u => u.id)) + 1 : 1;
+    const newUser = { id: nextId, username, password };
+    
+    data.users.push(newUser);
+    saveData(data);
+
+    res.status(201).json({ id: newUser.id, username: newUser.username });
 });
 
-// 2. Dodawanie (POST)
+// --- AUTH: Logowanie ---
+app.post('/api/auth/login', (req, res) => {
+    const { username, password } = req.body;
+    const data = readData();
+
+    const user = data.users.find(u => u.username === username && u.password === password);
+
+    if (!user) {
+        return res.status(401).json({ message: "Błędny login lub hasło!" });
+    }
+
+    // Zwracamy podstawowe dane użytkownika (sukces logowania)
+    res.json({ id: user.id, username: user.username });
+});
+
+// --- TASKS: Pobieranie zadań zalogowanego użytkownika ---
+app.get('/api/tasks', (req, res) => {
+    const userId = parseInt(req.headers['x-user-id']);
+    if (!userId) return res.status(401).json({ message: "Brak autoryzacji!" });
+
+    const data = readData();
+    // userID = zadanie
+    const userTasks = data.tasks.filter(t => t.userId === userId);
+    res.json(userTasks);
+});
+
+// --- TASKS: Dodawanie zadania dla konkretnego użytkownika ---
 app.post('/api/tasks', (req, res) => {
-    const tasks = readTasksFromFile();
-    
-    // Ulepszone generowanie ID (szukamy najwyższego ID i dodajemy 1)
-    const nextId = tasks.length > 0 ? Math.max(...tasks.map(t => t.id)) + 1 : 1;
+    const userId = parseInt(req.headers['x-user-id']);
+    if (!userId) return res.status(401).json({ message: "Brak autoryzacji!" });
+
+    const data = readData();
+    const nextId = data.tasks.length > 0 ? Math.max(...data.tasks.map(t => t.id)) + 1 : 1;
 
     const newTask = {
         id: nextId,
+        userId: userId,
         title: req.body.title
     };
-    
-    tasks.push(newTask);
-    writeTasksToFile(tasks); // Zapisujemy zaktualizowaną listę do pliku!
-    
+
+    data.tasks.push(newTask);
+    saveData(data);
     res.status(201).json(newTask);
 });
 
-// 3. Usuwanie (DELETE)
+// --- TASKS: Usuwanie zadania ---
 app.delete('/api/tasks/:id', (req, res) => {
     const taskId = parseInt(req.params.id);
-    let tasks = readTasksFromFile();
-    
-    tasks = tasks.filter(task => task.id !== taskId);
-    writeTasksToFile(tasks); // Zapisujemy listę po usunięciu zadania!
-    
+    const userId = parseInt(req.headers['x-user-id']);
+    if (!userId) return res.status(401).json({ message: "Brak autoryzacji!" });
+
+    const data = readData();
+    // Usuwanie zadania tylko jeśli ID się zgadza
+    data.tasks = data.tasks.filter(t => !(t.id === taskId && t.userId === userId));
+    saveData(data);
     res.status(204).send();
 });
 
-// 4. Start serwera
 app.listen(PORT, () => {
-    console.log(`Serwer działa jak złoto na http://localhost:${PORT}`);
+    console.log(`Serwer bazy danych v2 działa na http://localhost:${PORT}`);
 });
