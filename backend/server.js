@@ -2,110 +2,120 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+
 const app = express();
 const PORT = 3005;
+const FILE_PATH = path.join(__dirname, 'db.json');
 
 app.use(cors());
 app.use(express.json());
 
-const FILE_PATH = path.join(__dirname, 'db.json');
+// ---------------------------------------------------------------------------
+// Prosta "baza danych" oparta na pliku JSON.
+// ---------------------------------------------------------------------------
 
 const readData = () => {
-    if (!fs.existsSync(FILE_PATH)) {
-        const initialData = { users: [], tasks: [] };
-        fs.writeFileSync(FILE_PATH, JSON.stringify(initialData, null, 2));
-        return initialData;
-    }
-    return JSON.parse(fs.readFileSync(FILE_PATH, 'utf8'));
+  if (!fs.existsSync(FILE_PATH)) {
+    const initialData = { users: [], tasks: [] };
+    fs.writeFileSync(FILE_PATH, JSON.stringify(initialData, null, 2));
+    return initialData;
+  }
+  return JSON.parse(fs.readFileSync(FILE_PATH, 'utf8'));
 };
 
 const saveData = (data) => {
-    fs.writeFileSync(FILE_PATH, JSON.stringify(data, null, 2));
+  fs.writeFileSync(FILE_PATH, JSON.stringify(data, null, 2));
 };
 
+const getNextId = (items) =>
+  items.length > 0 ? Math.max(...items.map((item) => item.id)) + 1 : 1;
+
+// ---------------------------------------------------------------------------
+// Autoryzacja
+// ---------------------------------------------------------------------------
+
 app.post('/api/auth/register', (req, res) => {
-    const { username, password } = req.body;
-    const data = readData();
+  const { username, password } = req.body;
+  const data = readData();
 
-    if (data.users.find(u => u.username === username)) {
-        return res.status(400).json({ message: "Użytkownik o takiej nazwie już istnieje!" });
-    }
+  if (data.users.find((u) => u.username === username)) {
+    return res.status(400).json({ message: 'Użytkownik o takiej nazwie już istnieje!' });
+  }
 
-    const nextId = data.users.length > 0 ? Math.max(...data.users.map(u => u.id)) + 1 : 1;
-    const newUser = { id: nextId, username, password };
-    
-    data.users.push(newUser);
-    saveData(data);
+  const newUser = { id: getNextId(data.users), username, password };
+  data.users.push(newUser);
+  saveData(data);
 
-    res.status(201).json({ id: newUser.id, username: newUser.username });
+  res.status(201).json({ id: newUser.id, username: newUser.username });
 });
 
 app.post('/api/auth/login', (req, res) => {
-    const { username, password } = req.body;
-    const data = readData();
+  const { username, password } = req.body;
+  const data = readData();
 
-    const user = data.users.find(u => u.username === username && u.password === password);
+  const user = data.users.find((u) => u.username === username && u.password === password);
+  if (!user) {
+    return res.status(401).json({ message: 'Błędny login lub hasło!' });
+  }
 
-    if (!user) {
-        return res.status(401).json({ message: "Błędny login lub hasło!" });
-    }
-
-    res.json({ id: user.id, username: user.username });
+  res.json({ id: user.id, username: user.username });
 });
 
-app.get('/api/tasks', (req, res) => {
-    const userId = parseInt(req.headers['x-user-id']);
-    if (!userId) return res.status(401).json({ message: "Brak autoryzacji!" });
+// ---------------------------------------------------------------------------
+// Zadania
+// ---------------------------------------------------------------------------
 
-    const data = readData();
-    const userTasks = data.tasks.filter(t => t.userId === userId);
-    res.json(userTasks);
+app.get('/api/tasks', (req, res) => {
+  const userId = parseInt(req.headers['x-user-id']);
+  if (!userId) return res.status(401).json({ message: 'Brak autoryzacji!' });
+
+  const data = readData();
+  const userTasks = data.tasks.filter((t) => t.userId === userId);
+  res.json(userTasks);
 });
 
 app.post('/api/tasks', (req, res) => {
-    const userId = parseInt(req.headers['x-user-id']);
-    if (!userId) return res.status(401).json({ message: "Brak autoryzacji!" });
+  const userId = parseInt(req.headers['x-user-id']);
+  if (!userId) return res.status(401).json({ message: 'Brak autoryzacji!' });
 
-    const data = readData();
-    const nextId = data.tasks.length > 0 ? Math.max(...data.tasks.map(t => t.id)) + 1 : 1;
+  const data = readData();
+  const newTask = {
+    id: getNextId(data.tasks),
+    userId,
+    title: req.body.title,
+    completed: false,
+  };
 
-    const newTask = {
-        id: nextId,
-        userId: userId,
-        title: req.body.title,
-        completed: false
-    };
-
-    data.tasks.push(newTask);
-    saveData(data);
-    res.status(201).json(newTask);
+  data.tasks.push(newTask);
+  saveData(data);
+  res.status(201).json(newTask);
 });
 
 app.put('/api/tasks/:id', (req, res) => {
-    const taskId = parseInt(req.params.id);
-    const userId = parseInt(req.headers['x-user-id']);
-    if (!userId) return res.status(401).json({ message: "Brak autoryzacji!" });
+  const taskId = parseInt(req.params.id);
+  const userId = parseInt(req.headers['x-user-id']);
+  if (!userId) return res.status(401).json({ message: 'Brak autoryzacji!' });
 
-    const data = readData();
-    const task = data.tasks.find(t => t.id === taskId && t.userId === userId);
-    if (!task) return res.status(404).json({ message: "Nie znaleziono zadania" });
+  const data = readData();
+  const task = data.tasks.find((t) => t.id === taskId && t.userId === userId);
+  if (!task) return res.status(404).json({ message: 'Nie znaleziono zadania' });
 
-    task.completed = !task.completed;
-    saveData(data);
-    res.json(task);
+  task.completed = !task.completed;
+  saveData(data);
+  res.json(task);
 });
 
 app.delete('/api/tasks/:id', (req, res) => {
-    const taskId = parseInt(req.params.id);
-    const userId = parseInt(req.headers['x-user-id']);
-    if (!userId) return res.status(401).json({ message: "Brak autoryzacji!" });
+  const taskId = parseInt(req.params.id);
+  const userId = parseInt(req.headers['x-user-id']);
+  if (!userId) return res.status(401).json({ message: 'Brak autoryzacji!' });
 
-    const data = readData();
-    data.tasks = data.tasks.filter(t => !(t.id === taskId && t.userId === userId));
-    saveData(data);
-    res.status(204).send();
+  const data = readData();
+  data.tasks = data.tasks.filter((t) => !(t.id === taskId && t.userId === userId));
+  saveData(data);
+  res.status(204).send();
 });
 
 app.listen(PORT, () => {
-    console.log(`Serwer bazy danych działa na http://localhost:${PORT}`);
+  console.log(`Serwer bazy danych działa na http://localhost:${PORT}`);
 });

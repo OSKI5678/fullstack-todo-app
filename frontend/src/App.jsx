@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 
+const API_URL = 'http://localhost:3005/api';
+
 function App() {
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -16,8 +18,8 @@ function App() {
   }, [user]);
 
   const fetchTasks = async () => {
-    const res = await fetch('http://localhost:3005/api/tasks', {
-      headers: { 'X-User-Id': user.id }
+    const res = await fetch(`${API_URL}/tasks`, {
+      headers: { 'X-User-Id': user.id },
     });
     const data = await res.json();
     setTasks(data);
@@ -25,27 +27,27 @@ function App() {
 
   const handleRegister = async () => {
     if (!usernameInput || !passwordInput) return setMessage('Wpisz login i hasło!');
-    const res = await fetch('http://localhost:3005/api/auth/register', {
+
+    const res = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: usernameInput, password: passwordInput })
+      body: JSON.stringify({ username: usernameInput, password: passwordInput }),
     });
     const data = await res.json();
-    if (res.ok) {
-      setMessage('Zarejestrowano pomyślnie! Teraz możesz się zalogować.');
-    } else {
-      setMessage(data.message);
-    }
+
+    setMessage(res.ok ? 'Zarejestrowano pomyślnie! Teraz możesz się zalogować.' : data.message);
   };
 
   const handleLogin = async () => {
     if (!usernameInput || !passwordInput) return setMessage('Wpisz login i hasło!');
-    const res = await fetch('http://localhost:3005/api/auth/login', {
+
+    const res = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: usernameInput, password: passwordInput })
+      body: JSON.stringify({ username: usernameInput, password: passwordInput }),
     });
     const data = await res.json();
+
     if (res.ok) {
       setUser(data);
       setMessage('');
@@ -54,17 +56,24 @@ function App() {
     }
   };
 
+  const handleLogout = () => {
+    setUser(null);
+    setTasks([]);
+    setUsernameInput('');
+    setPasswordInput('');
+  };
+
   const addTask = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
 
-    const res = await fetch('http://localhost:3005/api/tasks', {
+    const res = await fetch(`${API_URL}/tasks`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
-        'X-User-Id': user.id
+        'X-User-Id': user.id,
       },
-      body: JSON.stringify({ title: input })
+      body: JSON.stringify({ title: input }),
     });
     const newTask = await res.json();
     setTasks([...tasks, newTask]);
@@ -72,88 +81,160 @@ function App() {
   };
 
   const toggleTask = async (id) => {
-    const res = await fetch(`http://localhost:3005/api/tasks/${id}`, {
+    const res = await fetch(`${API_URL}/tasks/${id}`, {
       method: 'PUT',
-      headers: { 'X-User-Id': user.id }
+      headers: { 'X-User-Id': user.id },
     });
     const updatedTask = await res.json();
-    setTasks(tasks.map(task => task.id === id ? updatedTask : task));
+    setTasks(tasks.map((task) => (task.id === id ? updatedTask : task)));
   };
 
   const deleteTask = async (id) => {
-    await fetch(`http://localhost:3005/api/tasks/${id}`, {
+    await fetch(`${API_URL}/tasks/${id}`, {
       method: 'DELETE',
-      headers: { 'X-User-Id': user.id }
+      headers: { 'X-User-Id': user.id },
     });
-    setTasks(tasks.filter(task => task.id !== id));
+    setTasks(tasks.filter((task) => task.id !== id));
   };
 
+  // ---------------------------------------------------------------------
+  // Ekran logowania / rejestracji
+  // ---------------------------------------------------------------------
   if (!user) {
     return (
-      <div className="App">
-        <h1>System Logowania</h1>
-        <div style={{ margin: '20px 0', display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '300px', margin: 'auto' }}>
-          <input 
-            type="text" 
-            placeholder="Login" 
-            value={usernameInput} 
-            onChange={(e) => setUsernameInput(e.target.value)} 
-          />
-          <input 
-            type="password" 
-            placeholder="Hasło" 
-            value={passwordInput} 
-            onChange={(e) => setPasswordInput(e.target.value)} 
-          />
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={handleLogin}>Zaloguj się</button>
-            <button onClick={handleRegister} style={{ backgroundColor: '#555' }}>Zarejestruj</button>
+      <div className="login-screen">
+        <div className="scene">
+          <div className="brand">
+            Next<span>Task</span>
           </div>
-          {message && <p style={{ color: 'orange', fontSize: '0.9em' }}>{message}</p>}
+
+          <div className="glass-card">
+            <div className="avatar">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4 3.5-7 8-7s8 3 8 7" />
+              </svg>
+            </div>
+
+            <div className="field">
+              <svg viewBox="0 0 24 24">
+                <path d="M3 6h18v12H3z" />
+                <path d="M3 7l9 6 9-6" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Login"
+                value={usernameInput}
+                onChange={(e) => setUsernameInput(e.target.value)}
+              />
+            </div>
+
+            <div className="field">
+              <svg viewBox="0 0 24 24">
+                <rect x="5" y="11" width="14" height="9" rx="2" />
+                <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+              </svg>
+              <input
+                type="password"
+                placeholder="Hasło"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+              />
+            </div>
+
+            <div className="row">
+              <span className="hint">Nie masz konta?</span>
+              <button className="link-btn" onClick={handleRegister}>
+                Zarejestruj się
+              </button>
+            </div>
+
+            {message && <p className="message">{message}</p>}
+          </div>
+
+          <button className="login-btn" onClick={handleLogin}>
+            ZALOGUJ SIĘ
+          </button>
         </div>
       </div>
     );
   }
 
+  // ---------------------------------------------------------------------
+  // Widok listy zadań (po zalogowaniu)
+  // ---------------------------------------------------------------------
   return (
-    <div className="App">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <span>Zalogowany jako: <b>{user.username}</b></span>
-        <button onClick={() => setUser(null)} style={{ backgroundColor: '#d9534f', padding: '5px 10px' }}>Wyloguj</button>
-      </div>
+    <div className="login-screen">
+      <div className="scene scene--tasks">
+        <div className="brand">
+          Next<span>Task</span>
+        </div>
 
-      <h1>Moja Lista Zadań</h1>
-      
-      <form onSubmit={addTask}>
-        <input 
-          type="text" 
-          value={input} 
-          onChange={(e) => setInput(e.target.value)} 
-          placeholder="Co masz do zrobienia?"
-        />
-        <button type="submit">Dodaj</button>
-      </form>
+        <div className="topbar">
+          <span className="user">
+            Zalogowany jako: <b>{user.username}</b>
+          </span>
+          <button className="logout-btn" onClick={handleLogout}>
+            Wyloguj
+          </button>
+        </div>
 
-      <ul>
-        {tasks.map((task, index) => (
-          <li key={task.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '10px 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <input 
-                type="checkbox" 
-                checked={task.completed || false} 
-                onChange={() => toggleTask(task.id)} 
+        <div className="glass-card glass-card--tasks">
+          <form className="add-form" onSubmit={addTask}>
+            <div className="add-field">
+              <svg viewBox="0 0 24 24">
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+              </svg>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Co masz do zrobienia?"
               />
-              <span style={{ 
-                textDecoration: task.completed ? 'line-through' : 'none', 
-                color: task.completed ? '#888' : 'inherit' 
-              }}>
-                {index + 1}. {task.title}
-              </span>
             </div>
-            <button onClick={() => deleteTask(task.id)} style={{ backgroundColor: '#999', marginLeft: '20px', padding: '2px 8px' }}>X</button>
-          </li>
-        ))}
-      </ul>
+            <button type="submit" className="add-btn" aria-label="Dodaj zadanie">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          </form>
+
+          {tasks.length === 0 ? (
+            <p className="empty">Brak zadań — dodaj pierwsze powyżej.</p>
+          ) : (
+            <ul className="task-list">
+              {tasks.map((task) => (
+                <li key={task.id} className="task-item">
+                  <button
+                    className={task.completed ? 'task-check done' : 'task-check'}
+                    onClick={() => toggleTask(task.id)}
+                    aria-label={task.completed ? 'Oznacz jako niewykonane' : 'Oznacz jako wykonane'}
+                  >
+                    <svg viewBox="0 0 24 24">
+                      <path d="M5 12l5 5L20 7" />
+                    </svg>
+                  </button>
+
+                  <span className={task.completed ? 'task-text done' : 'task-text'}>
+                    {task.title}
+                  </span>
+
+                  <button
+                    className="task-delete"
+                    onClick={() => deleteTask(task.id)}
+                    aria-label="Usuń zadanie"
+                  >
+                    <svg viewBox="0 0 24 24">
+                      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0l-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6" />
+                    </svg>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
