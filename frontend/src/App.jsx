@@ -5,13 +5,10 @@ function App() {
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [input, setInput] = useState('');
-  
-  // Dane do formularza logowania/rejestracji
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [message, setMessage] = useState('');
 
-  // Pobieraj zadania tylko wtedy, gdy użytkownik jest zalogowany
   useEffect(() => {
     if (user) {
       fetchTasks();
@@ -20,7 +17,7 @@ function App() {
 
   const fetchTasks = async () => {
     const res = await fetch('http://localhost:3005/api/tasks', {
-      headers: { 'X-User-Id': user.id } // Wysyłamy ID użytkownika w nagłówku
+      headers: { 'X-User-Id': user.id }
     });
     const data = await res.json();
     setTasks(data);
@@ -50,7 +47,7 @@ function App() {
     });
     const data = await res.json();
     if (res.ok) {
-      setUser(data); // Zapisujemy użytkownika w stanie aplikacji
+      setUser(data);
       setMessage('');
     } else {
       setMessage(data.message);
@@ -74,6 +71,15 @@ function App() {
     setInput('');
   };
 
+  const toggleTask = async (id) => {
+    const res = await fetch(`http://localhost:3005/api/tasks/${id}`, {
+      method: 'PUT',
+      headers: { 'X-User-Id': user.id }
+    });
+    const updatedTask = await res.json();
+    setTasks(tasks.map(task => task.id === id ? updatedTask : task));
+  };
+
   const deleteTask = async (id) => {
     await fetch(`http://localhost:3005/api/tasks/${id}`, {
       method: 'DELETE',
@@ -82,7 +88,6 @@ function App() {
     setTasks(tasks.filter(task => task.id !== id));
   };
 
-  // 1. WIDOK DLA NIEZALOGOWANEGO UŻYTKOWNIKA
   if (!user) {
     return (
       <div className="App">
@@ -110,7 +115,6 @@ function App() {
     );
   }
 
-  // 2. WIDOK DLA ZALOGOWANEGO UŻYTKOWNIKA
   return (
     <div className="App">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -133,7 +137,19 @@ function App() {
       <ul>
         {tasks.map((task, index) => (
           <li key={task.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '10px 0' }}>
-            <span>{index + 1}. {task.title}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <input 
+                type="checkbox" 
+                checked={task.completed || false} 
+                onChange={() => toggleTask(task.id)} 
+              />
+              <span style={{ 
+                textDecoration: task.completed ? 'line-through' : 'none', 
+                color: task.completed ? '#888' : 'inherit' 
+              }}>
+                {index + 1}. {task.title}
+              </span>
+            </div>
             <button onClick={() => deleteTask(task.id)} style={{ backgroundColor: '#999', marginLeft: '20px', padding: '2px 8px' }}>X</button>
           </li>
         ))}

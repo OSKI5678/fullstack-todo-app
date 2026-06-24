@@ -21,6 +21,12 @@
       "id": 2,
       "userId": 1,
       "title": "task2"
+    },
+    {
+      "id": 4,
+      "userId": 1,
+      "title": "task4",
+      "completed": true
     }
   ]
 }
