@@ -3,10 +3,19 @@ import './App.css';
 
 const API_URL = 'http://localhost:3005/api';
 
+// Filtry dostępne na liście zadań.
+const FILTERS = {
+  ALL: 'all',
+  ACTIVE: 'active',
+  DONE: 'done',
+};
+
 function App() {
   const [user, setUser] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [input, setInput] = useState('');
+  const [dueDateInput, setDueDateInput] = useState('');
+  const [filter, setFilter] = useState(FILTERS.ALL);
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [message, setMessage] = useState('');
@@ -73,11 +82,12 @@ function App() {
         'Content-Type': 'application/json',
         'X-User-Id': user.id,
       },
-      body: JSON.stringify({ title: input }),
+      body: JSON.stringify({ title: input, dueDate: dueDateInput || null }),
     });
     const newTask = await res.json();
     setTasks([...tasks, newTask]);
     setInput('');
+    setDueDateInput('');
   };
 
   const toggleTask = async (id) => {
@@ -97,9 +107,31 @@ function App() {
     setTasks(tasks.filter((task) => task.id !== id));
   };
 
-  // ---------------------------------------------------------------------
+  // -----------------------------------------------------------------------
+  // Pochodne dane: licznik i lista po zastosowaniu filtra
+  // -----------------------------------------------------------------------
+  const doneCount = tasks.filter((t) => t.completed).length;
+
+  const visibleTasks = tasks.filter((task) => {
+    if (filter === FILTERS.ACTIVE) return !task.completed;
+    if (filter === FILTERS.DONE) return task.completed;
+    return true;
+  });
+
+  const isOverdue = (task) => {
+    if (!task.dueDate || task.completed) return false;
+    const today = new Date().toISOString().slice(0, 10);
+    return task.dueDate < today;
+  };
+
+  const formatDate = (isoDate) => {
+    const [year, month, day] = isoDate.split('-');
+    return `${day}.${month}.${year}`;
+  };
+
+  // -----------------------------------------------------------------------
   // Ekran logowania / rejestracji
-  // ---------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   if (!user) {
     return (
       <div className="login-screen">
@@ -160,9 +192,9 @@ function App() {
     );
   }
 
-  // ---------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   // Widok listy zadań (po zalogowaniu)
-  // ---------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   return (
     <div className="login-screen">
       <div className="scene scene--tasks">
@@ -180,6 +212,10 @@ function App() {
         </div>
 
         <div className="glass-card glass-card--tasks">
+          <div className="counter">
+            Zrobione: {doneCount} z {tasks.length} {tasks.length === 1 ? 'zadania' : 'zadań'}
+          </div>
+
           <form className="add-form" onSubmit={addTask}>
             <div className="add-field">
               <svg viewBox="0 0 24 24">
@@ -193,6 +229,13 @@ function App() {
                 placeholder="Co masz do zrobienia?"
               />
             </div>
+            <input
+              type="date"
+              className="date-field"
+              value={dueDateInput}
+              onChange={(e) => setDueDateInput(e.target.value)}
+              aria-label="Termin wykonania"
+            />
             <button type="submit" className="add-btn" aria-label="Dodaj zadanie">
               <svg viewBox="0 0 24 24">
                 <path d="M12 5v14M5 12h14" />
@@ -200,12 +243,37 @@ function App() {
             </button>
           </form>
 
-          {tasks.length === 0 ? (
-            <p className="empty">Brak zadań — dodaj pierwsze powyżej.</p>
+          <div className="filters">
+            <button
+              className={filter === FILTERS.ALL ? 'filter-btn active' : 'filter-btn'}
+              onClick={() => setFilter(FILTERS.ALL)}
+            >
+              Wszystkie
+            </button>
+            <button
+              className={filter === FILTERS.ACTIVE ? 'filter-btn active' : 'filter-btn'}
+              onClick={() => setFilter(FILTERS.ACTIVE)}
+            >
+              Do zrobienia
+            </button>
+            <button
+              className={filter === FILTERS.DONE ? 'filter-btn active' : 'filter-btn'}
+              onClick={() => setFilter(FILTERS.DONE)}
+            >
+              Zakończone
+            </button>
+          </div>
+
+          {visibleTasks.length === 0 ? (
+            <p className="empty">
+              {tasks.length === 0
+                ? 'Brak zadań — dodaj pierwsze powyżej.'
+                : 'Brak zadań w tym filtrze.'}
+            </p>
           ) : (
             <ul className="task-list">
-              {tasks.map((task) => (
-                <li key={task.id} className="task-item">
+              {visibleTasks.map((task) => (
+                <li key={task.id} className={isOverdue(task) ? 'task-item overdue' : 'task-item'}>
                   <button
                     className={task.completed ? 'task-check done' : 'task-check'}
                     onClick={() => toggleTask(task.id)}
@@ -216,9 +284,17 @@ function App() {
                     </svg>
                   </button>
 
-                  <span className={task.completed ? 'task-text done' : 'task-text'}>
-                    {task.title}
-                  </span>
+                  <div className="task-body">
+                    <span className={task.completed ? 'task-text done' : 'task-text'}>
+                      {task.title}
+                    </span>
+                    {task.dueDate && (
+                      <span className={isOverdue(task) ? 'task-due overdue-text' : 'task-due'}>
+                        Termin: {formatDate(task.dueDate)}
+                        {isOverdue(task) ? ' (po terminie)' : ''}
+                      </span>
+                    )}
+                  </div>
 
                   <button
                     className="task-delete"

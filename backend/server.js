@@ -2,10 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcrypt');
 
 const app = express();
 const PORT = 3005;
 const FILE_PATH = path.join(__dirname, 'db.json');
+const SALT_ROUNDS = 10;
 
 app.use(cors());
 app.use(express.json());
@@ -34,27 +36,41 @@ const getNextId = (items) =>
 // Autoryzacja
 // ---------------------------------------------------------------------------
 
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Wpisz login i hasło!' });
+  }
+
   const data = readData();
 
   if (data.users.find((u) => u.username === username)) {
     return res.status(400).json({ message: 'Użytkownik o takiej nazwie już istnieje!' });
   }
 
-  const newUser = { id: getNextId(data.users), username, password };
+  // Hasło nigdy nie jest zapisywane w czystym tekście - zamieniamy je na hash.
+  const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+
+  const newUser = { id: getNextId(data.users), username, passwordHash };
   data.users.push(newUser);
   saveData(data);
 
   res.status(201).json({ id: newUser.id, username: newUser.username });
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
-  const data = readData();
+  if (!username || !password) {
+    return res.status(400).json({ message: 'Wpisz login i hasło!' });
+  }
 
-  const user = data.users.find((u) => u.username === username && u.password === password);
-  if (!user) {
+  const data = readData();
+  const user = data.users.find((u) => u.username === username);
+
+  // To samo zaokrąglenie komunikatu błędu dla "brak użytkownika" i "błędne hasło" -
+  // dzięki temu osoba próbująca odgadnąć konta nie wie, czy login istnieje.
+  const passwordMatches = user ? await bcrypt.compare(password, user.passwordHash) : false;
+  if (!user || !passwordMatches) {
     return res.status(401).json({ message: 'Błędny login lub hasło!' });
   }
 
@@ -84,6 +100,8 @@ app.post('/api/tasks', (req, res) => {
     userId,
     title: req.body.title,
     completed: false,
+    // dueDate jest opcjonalne - null oznacza "bez terminu"
+    dueDate: req.body.dueDate || null,
   };
 
   data.tasks.push(newTask);
@@ -117,5 +135,5 @@ app.delete('/api/tasks/:id', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Serwer bazy danych działa na http://localhost:${PORT}`);
+  console.log(`Serwer bazy danych v3 działa na http://localhost:${PORT}`);
 });

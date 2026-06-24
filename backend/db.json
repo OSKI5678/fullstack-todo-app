@@ -3,12 +3,12 @@
     {
       "id": 1,
       "username": "admin",
-      "password": "password"
+      "passwordHash": "$2b$10$aF4QpU2KgSK16X0pbw4B8.iYIhjmRxezFUlIwfklUZSQQcYsA6PBW"
     },
     {
       "id": 2,
-      "username": "user",
-      "password": "pass"
+      "username": "maciek",
+      "passwordHash": "$2b$10$pNSblwQT0z7my.Ad.rGPIuHDJLCxM8P/d3Q8iD0JiPyomzKVAgVN."
     }
   ],
   "tasks": [
@@ -16,25 +16,22 @@
       "id": 1,
       "userId": 1,
       "title": "task1",
-      "completed": false
+      "completed": true,
+      "dueDate": "2026-06-28"
     },
     {
       "id": 2,
       "userId": 1,
       "title": "task2",
-      "completed": false
+      "completed": false,
+      "dueDate": "2026-06-26"
     },
     {
-      "id": 4,
+      "id": 3,
       "userId": 1,
-      "title": "task4",
-      "completed": true
-    },
-    {
-      "id": 5,
-      "userId": 1,
-      "title": "task5",
-      "completed": false
+      "title": "task3",
+      "completed": false,
+      "dueDate": "2026-07-12"
     }
   ]
 }

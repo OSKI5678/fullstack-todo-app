@@ -250,15 +250,25 @@ body {
   outline-offset: 2px;
 }
 
+/* Licznik "Zrobione: X z Y zadań" */
+.counter {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 18px;
+}
+
 /* Pole dodawania zadania */
 .add-form {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .add-field {
-  flex: 1;
+  flex: 1 1 100%;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -293,8 +303,37 @@ body {
   color: rgba(255, 255, 255, 0.5);
 }
 
+/* Pole wyboru terminu (input type=date), tej samej wysokości co add-btn */
+.date-field {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  background: linear-gradient(135deg, #2c4a68, #1d3650);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 0 12px;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  box-shadow:
+    0 6px 14px rgba(10, 20, 40, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.date-field::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.date-field:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
 .add-btn {
   width: 48px;
+  height: 44px;
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.18);
@@ -303,6 +342,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .add-btn:hover {
@@ -323,6 +363,39 @@ body {
 }
 
 /* Lista zadań */
+.filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.filter-btn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 6px;
+  cursor: pointer;
+}
+
+.filter-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.filter-btn.active {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+}
+
+.filter-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
 .task-list {
   list-style: none;
   margin: 0;
@@ -380,7 +453,6 @@ body {
 }
 
 .task-text {
-  flex: 1;
   color: #ffffff;
   font-size: 14px;
   word-break: break-word;
@@ -389,6 +461,31 @@ body {
 .task-text.done {
   text-decoration: line-through;
   color: rgba(255, 255, 255, 0.45);
+}
+
+/* Kontener tekstu zadania + termin, jedno pod drugim */
+.task-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.task-due {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.overdue-text {
+  color: #f5a3a3;
+  font-weight: 600;
+}
+
+/* Cały wiersz zadania podświetlony czerwono, gdy termin minął */
+.task-item.overdue {
+  background: rgba(150, 50, 50, 0.35);
+  border-color: rgba(245, 163, 163, 0.35);
 }
 
 .task-delete {
